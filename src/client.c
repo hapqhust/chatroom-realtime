@@ -205,6 +205,7 @@ void sendMessageHandler()
                 break;
             }
         }
+        
         if (strcmp(message, "exit") == 0)
         {
             send(client_sock, message, BUFF_SIZE, 0);

@@ -284,7 +284,7 @@ void handleClient(void *client_X)
         /* Check for errors */
         if (receive > 0)
         {
-            if (strlen(recv_buffer) == 0)
+            if (strlen(recv_buffer) == 0 || strcmp(recv_buffer, "exit") == 0)
             {
                 continue;
             }
