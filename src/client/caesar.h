@@ -1,13 +1,12 @@
-#ifndef CAESAR
-#define CAESAR
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* Function to shift a letter by a given key */
 char shift_letter(char letter, int key);
 
 /* Function to encrypt a message using the Caesar Cipher */
-void encrypt_caesar(char message[], int key);
+void encrypt_caesar(char* message, int key);
 
 /* Function to decrypt a message using the Caesar Cipher */
-void decrypt_caesar(char message[], int key);
-
-#endif // CAESAR
+void decrypt_caesar(char* message, int key);
