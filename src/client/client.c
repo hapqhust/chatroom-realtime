@@ -8,8 +8,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include "proto.h"
-#include "string.h"
 
 #define STRING_NAME_LENGTH 30
 #define BUFF_SIZE 1024
@@ -20,8 +18,14 @@
 // Global variables
 volatile sig_atomic_t flag = 0;
 int client_sock; // client socket
+char nickname[STRING_NAME_LENGTH + 1]; // nickname
 
-char nickname[STRING_NAME_LENGTH + 1];
+/**
+ * Config message
+*/
+void str_trim_lf (char*, int);
+
+void str_overwrite_stdout();
 
 /**
  * Exit on key function
@@ -125,6 +129,21 @@ int main(int argc, char *argv[])
 
     close(client_sock);
     return 0;
+}
+
+void str_trim_lf (char* arr, int length) {
+    int i;
+    for (i = 0; i < length; i++) { // trim \n
+        if (arr[i] == '\n') {
+            arr[i] = '\0';
+            break;
+        }
+    }
+}
+
+void str_overwrite_stdout() {
+    printf("\r%s", "> ");
+    fflush(stdout);
 }
 
 void get_ctrl_c_and_exit_button(int sig)
