@@ -65,12 +65,17 @@ void *keyGeneration(void *args)
         key = generateKey();
         printf("Generated key: %d\n", key);
 
+        /* Convert key(int) to str(string) */
+        char str[10];
+        itoa(key, str, 10);
+        str[strlen(str) - 1] = '\0';
+
         /* Send key to all connected clients */
         ClientList *tmp = root->link;
         printf("Sending KEY to all client.....\n");
         while (tmp != NULL)
         {
-            send(tmp->socket, &key, sizeof(key), 0);
+            send(tmp->socket, str, sizeof(key), 0);
             tmp = tmp->link;
         }
 
