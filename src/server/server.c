@@ -10,7 +10,10 @@
 #include <pthread.h>
 #include <stdio_ext.h>
 #include <sys/wait.h>
+#include <stdint.h>
 
+#define BUFFER_SIZE 1024
+#define MAX_CLIENTS 20
 
 typedef struct ClientNode
 {
@@ -38,6 +41,46 @@ ClientList *root, *now;
 #define LENGTH_MSG 101
 #define LENGTH_SEND 201
 
+/* Thread-specific data */
+pthread_key_t key_seed;
+int key = 0;
+
+/* Function to generate a random key between 1 and 25 */
+int generateKey()
+{
+    /* Retrieve seed specific to this thread */
+    unsigned int seed = (uintptr_t) pthread_getspecific(key_seed);
+    /* Use seed to generate key */
+    return (rand_r(&seed) % 25) + 1;
+}
+
+/* Thread function for generating key */
+void *keyGeneration(void *args)
+{
+    /* Create seed specific to this thread */
+    unsigned int seed = (unsigned int)time(0);
+    pthread_setspecific(key_seed, &seed);
+    while (1)
+    {
+        key = generateKey();
+        printf("Generated key: %d\n", key);
+
+        /* Send key to all connected clients */
+        ClientList *tmp = root->link;
+        printf("Sending KEY to all client.....\n");
+        while (tmp != NULL)
+        {
+            send(tmp->socket, &key, sizeof(key), 0);
+            tmp = tmp->link;
+        }
+
+        /* Sleep for 20 seconds */
+        struct timespec ts = {20, 0};
+        nanosleep(&ts, NULL);
+    }
+    return NULL;
+}
+
 void sig_chld(int sig)
 {
     ClientList *tmp;
@@ -53,7 +96,7 @@ void sig_chld(int sig)
     exit(EXIT_SUCCESS);
 }
 
-void sendMessage(ClientList *np, char tmp_buffer[])
+void sendAllClients(ClientList *np, char tmp_buffer[])
 {
     ClientList *tmp = root->link;
     printf("Sending to all client.....\n");
@@ -67,7 +110,8 @@ void sendMessage(ClientList *np, char tmp_buffer[])
     }
 }
 
-void clientHandler(void *client_X)
+/* Thread function for handling clients */
+void handleClient(void *client_X)
 {
     int leave_flag = 0;
     char nickname[LENGTH_NAME] = {};
@@ -86,17 +130,19 @@ void clientHandler(void *client_X)
         strncpy(np->name, nickname, LENGTH_NAME);
         printf("%s join the chatroom.\n", np->name);
         sprintf(send_buffer, "%s join the chatroom.", np->name);
-        sendMessage(np, send_buffer);
+        sendAllClients(np, send_buffer);
     }
 
     // Conversation
     while (1)
     {
         if (leave_flag)
-        {
             break;
-        }
+
+        /* Receive message from client */
         int receive = recv(np->socket, recv_buffer, LENGTH_MSG, 0);
+
+        /* Check for errors */
         if (receive > 0)
         {
             if (strlen(recv_buffer) == 0)
@@ -116,7 +162,9 @@ void clientHandler(void *client_X)
             printf("Fatal Error: -1\n");
             leave_flag = 1;
         }
-        sendMessage(np, send_buffer);
+
+        /* Send the encrypted/decrypted message back to the all clients */
+        sendAllClients(np, send_buffer);
     }
 
     // Remove Node
@@ -138,10 +186,17 @@ int main()
 {
     int server_sockfd = 0;
     int sin_size;
+    pthread_t threads[MAX_CLIENTS], key_thread;
 
-	signal(SIGCHLD, sig_chld);
+    /* Create thread-specific data key */
+    pthread_key_create(&key_seed, NULL);
 
-    // Create socket
+    /* Create key generation thread */
+    pthread_create(&key_thread, NULL, keyGeneration, NULL);
+
+    signal(SIGCHLD, sig_chld);
+
+    /* Create a socket */
     server_sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sockfd == -1)
     {
@@ -163,7 +218,7 @@ int main()
     server_info.sin_addr.s_addr = INADDR_ANY;
     server_info.sin_port = htons(5500);
 
-    // bind the socket to the specified IP addr and port
+    /* Bind the socket to an IP and port */
     if (bind(server_sockfd, (struct sockaddr *)&server_info, s_addrlen) != 0)
     {
         printf("socket bind failed...\n");
@@ -172,8 +227,8 @@ int main()
     else
         printf("Socket successfully binded..\n");
 
-    // Listen
-    if (listen(server_sockfd, 20) != 0)
+    /* Listen for incoming connections */
+    if (listen(server_sockfd, MAX_CLIENTS) != 0)
     {
         printf("Listen failed...\n");
         exit(EXIT_FAILURE);
@@ -190,11 +245,11 @@ int main()
     now = root;
 
     int no_threads = 0;
-    pthread_t threads[20];
-    while (no_threads < 20)
+    while (no_threads < MAX_CLIENTS)
     {
         sin_size = sizeof(struct sockaddr_in);
 
+        /* Accept incoming connections */
         int client_sockfd = accept(server_sockfd, (struct sockaddr *)&client_info, &sin_size);
         puts("Connection accepted");
 
@@ -206,7 +261,8 @@ int main()
         now->link = c;
         now = c;
 
-        if (pthread_create(&threads[no_threads], NULL, (void *)clientHandler, (void *)c) < 0)
+        /* Create a new thread to handle the client */
+        if (pthread_create(&threads[no_threads], NULL, (void *)handleClient, (void *)c) < 0)
         {
             perror("Could not create thread");
             return 1;
@@ -219,6 +275,8 @@ int main()
         else
             printf("Server acccept the client...\n");
         puts("Handler assigned");
+
+        /* Increment the client counter */
         no_threads++;
     }
 
@@ -228,6 +286,7 @@ int main()
         pthread_join(threads[k], NULL);
     }
 
+    /* Close the server socket */
     close(server_sockfd);
 
     return 0;
