@@ -10,10 +10,15 @@
 /* Function to shift a letter by a given key */
 char shift_letter(char letter, int key)
 {
-    /* Ensure letter is lowercase */
-    letter = tolower(letter);
-    /* Shift letter by key, wrapping around the alphabet */
-    letter = ((letter - 'a' + key) % ALPHABET_SIZE) + 'a';
+    /* Check letter is upper? 
+     * Then shift letter by key, wrapping around the alphabet
+     */
+    if (isupper(letter)) {
+        letter = ((letter - 'A' + key) % ALPHABET_SIZE) + 'A';
+    } else {
+        letter = ((letter - 'a' + key) % ALPHABET_SIZE) + 'a';
+    }
+    
     return letter;
 }
 

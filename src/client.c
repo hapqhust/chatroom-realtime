@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     signal(SIGCHLD, sig_chld);
 
     // Step 0: Get data from command
-    int SERVER_PORT, SECRET_KEY;
+    int SERVER_PORT;
     char SERVER_ADDR[BUFF_SIZE + 1];
 
     if (argc != 3)
@@ -57,7 +57,6 @@ int main(int argc, char *argv[])
     {
         SERVER_PORT = atoi(argv[2]);
         strcpy(SERVER_ADDR, argv[1]);
-        // SECRET_KEY = atoi(argv[3]);
     }
 
     // Step 1: Construct socket
@@ -105,7 +104,7 @@ int main(int argc, char *argv[])
     printf("Connect to Server: %s:%d\n", inet_ntoa(server_info.sin_addr), ntohs(server_info.sin_port));
     printf("You are: %s:%d\n", inet_ntoa(client_info.sin_addr), ntohs(client_info.sin_port));
 
-    // send nick name
+    // send nickname
     send(client_sock, nickname, strlen(nickname), 0);
 
     pthread_t send_msg_thread;
@@ -150,7 +149,7 @@ void str_trim_lf(char *arr, int length)
 
 void str_overwrite_stdout()
 {
-    printf("\r%s", "> ");
+    printf("\r%s", "You: ");
     fflush(stdout);
 }
 
