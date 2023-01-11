@@ -8,6 +8,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <stdio_ext.h>
+#include <sys/wait.h>
+#include "caesar.h"
 
 #define STRING_NAME_LENGTH 30
 #define BUFF_SIZE 1024
@@ -17,20 +20,21 @@
 
 // Global variables
 volatile sig_atomic_t flag = 0;
-int client_sock; // client socket
+int client_sock;                       // client socket
 char nickname[STRING_NAME_LENGTH + 1]; // nickname
+int caesarKey = 1;
 
 /**
  * Config message
-*/
-void str_trim_lf (char*, int);
+ */
+void str_trim_lf(char *, int);
 
 void str_overwrite_stdout();
 
 /**
  * Exit on key function
-*/
-void get_ctrl_c_and_exit_button(int sig);
+ */
+void sig_chld(int);
 
 void recieveMessageHandler();
 
@@ -38,13 +42,13 @@ void sendMessageHandler();
 
 int main(int argc, char *argv[])
 {
-    signal(SIGINT, get_ctrl_c_and_exit_button);
+    signal(SIGCHLD, sig_chld);
 
     // Step 0: Get data from command
     int SERVER_PORT, SECRET_KEY;
     char SERVER_ADDR[BUFF_SIZE + 1];
 
-    if (argc != 4)
+    if (argc != 3)
     {
         printf("Wrong command!\n");
         exit(EXIT_FAILURE);
@@ -53,7 +57,7 @@ int main(int argc, char *argv[])
     {
         SERVER_PORT = atoi(argv[2]);
         strcpy(SERVER_ADDR, argv[1]);
-        SECRET_KEY = atoi(argv[3]);
+        // SECRET_KEY = atoi(argv[3]);
     }
 
     // Step 1: Construct socket
@@ -67,7 +71,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    server_info.sin_family = PF_INET;
+    server_info.sin_family = AF_INET;
     server_info.sin_addr.s_addr = inet_addr(SERVER_ADDR);
     server_info.sin_port = htons(SERVER_PORT);
 
@@ -79,12 +83,12 @@ int main(int argc, char *argv[])
     }
 
     // Get user name
-    printf("Please enter your name: ");
+    printf("Please enter your nickname: ");
     memset(nickname, '\0', (strlen(nickname) + 1));
     fgets(nickname, BUFF_SIZE, stdin);
     nickname[strcspn(nickname, "\r\n")] = 0;
 
-    if (strlen(nickname) < 2 || strlen(nickname) >= STRING_NAME_LENGTH)
+    if (strlen(nickname) < 1 || strlen(nickname) >= STRING_NAME_LENGTH)
     {
         printf("\nName length is between 1 to 30 characters.\n");
         exit(EXIT_FAILURE);
@@ -131,22 +135,26 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void str_trim_lf (char* arr, int length) {
+void str_trim_lf(char *arr, int length)
+{
     int i;
-    for (i = 0; i < length; i++) { // trim \n
-        if (arr[i] == '\n') {
+    for (i = 0; i < length; i++)
+    { // trim \n
+        if (arr[i] == '\n')
+        {
             arr[i] = '\0';
             break;
         }
     }
 }
 
-void str_overwrite_stdout() {
+void str_overwrite_stdout()
+{
     printf("\r%s", "> ");
     fflush(stdout);
 }
 
-void get_ctrl_c_and_exit_button(int sig)
+void sig_chld(int sig)
 {
     flag = 1;
 }
@@ -159,8 +167,17 @@ void recieveMessageHandler()
         int receive = recv(client_sock, receiveMessage, BUFF_SIZE, 0);
         if (receive > 0)
         {
-            printf("\r%s\n", receiveMessage);
-            str_overwrite_stdout();
+            int key = atoi(receiveMessage);
+            if (key != 0)
+            {
+                caesarKey = key;
+            }
+            else
+            {
+                decrypt_caesar(receiveMessage, caesarKey);
+                printf("\r%s\n", receiveMessage);
+                str_overwrite_stdout();
+            }
         }
         else if (receive == 0)
         {
@@ -189,11 +206,16 @@ void sendMessageHandler()
                 break;
             }
         }
-        send(client_sock, message, BUFF_SIZE, 0);
         if (strcmp(message, "exit") == 0)
         {
+            send(client_sock, message, BUFF_SIZE, 0);
             break;
         }
+        else
+        {
+            encrypt_caesar(message, caesarKey);
+            send(client_sock, message, BUFF_SIZE, 0);
+        }
     }
-    get_ctrl_c_and_exit_button(2);
+    sig_chld(2);
 }

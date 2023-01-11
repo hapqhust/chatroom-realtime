@@ -1,5 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+
+#include"caesar.h"
 
 #define ALPHABET_SIZE 26
 
@@ -17,7 +21,8 @@ char shift_letter(char letter, int key)
 void encrypt_caesar(char message[], int key)
 {
     int length = strlen(message);
-    for (int i = 0; i < length; i++)
+    int i;
+    for (i = 0; i < length; i++)
     {
         if (isalpha(message[i]))
         {
@@ -30,7 +35,8 @@ void encrypt_caesar(char message[], int key)
 void decrypt_caesar(char message[], int key)
 {
     int length = strlen(message);
-    for (int i = 0; i < length; i++)
+    int i;
+    for (i = 0; i < length; i++)
     {
         if (isalpha(message[i]))
         {
